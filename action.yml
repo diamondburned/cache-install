@@ -1,31 +1,49 @@
-name: 'Cache install Nix packages'
-description: 'Use the GitHub Actions cache for Nix packages'
-author: 'Rik Huijzer'
+name: "Cache install Nix packages"
+description: Use the GitHub Actions cache for Nix packages
+author: "Rik Huijzer"
 inputs:
   key:
-    description: 'An explicit key for restoring and saving the cache'
-    required: true
-  restore-keys:
-    description: 'An ordered list of keys to use for restoring the cache if no cache hit occurred for key'
+    description: |-
+      An explicit key for restoring and saving the cache. If not provided, then
+      the Nix files are used as inputs.
     required: false
-  nix_version:
-    description: 'Nix version, defaults to `nixos-unstable`.'
-    default: 'nixos-unstable'
-  nix_file:
-    description: 'Nix file of form `{ pkgs }: []`.'
+  key-prefix:
+    description: |-
+      The prefix to use for the evaluated cache key.
+    default: nix-${{ runner.os }}-
+  restore-keys:
+    description: |-
+      An ordered list of keys to use for restoring the cache if no cache hit
+      occurred for key.
+    required: false
+  nix-path:
+    description: |-
+      Nix path to use (e.g. `nixpkgs=channel:nixos-unstable`), defaults to none.
+      Prefer manually importing Nixpkgs whenever possible.
+  nix-file:
+    description: |-
+      Nix file of form `{ pkgs }: []`.
     default: default.nix
-  shell_file:
-    description: 'Nix shell file, requires `mkShell { buildInputs }`.'
+  shell-file:
+    description: |-
+      Nix shell file, requires `mkShell { buildInputs }`.
     default: shell.nix
-  auto_optimise:
-    description: 'Whether to run `nix-store --optimise` before caching.'
-    default: false
+  instantiated-files:
+    description: |-
+      Nix files to instantiate for the cache but not install.
+    required: false
+  auto-optimise:
+    description: |-
+      Whether to run `nix-store --optimise` before caching.
+    default: true
 outputs:
   cache-hit:
-    description: 'A boolean value to indicate an exact match was found for the primary key'
+    description: |-
+      A boolean value to indicate an exact match was found for the primary key.
 runs:
-  using: 'node16'
-  main: 'dist/index.js'
+  using: "node16"
+  main: "dist/index.js"
+  post: "dist/index.js"
 branding:
-  icon: 'arrow-down'
-  color: 'blue'
+  icon: "arrow-down"
+  color: "blue"

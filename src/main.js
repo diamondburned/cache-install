@@ -1,78 +1,150 @@
-const cache = require('@actions/cache');
-const core = require('@actions/core');
-const exec = require('@actions/exec');
-const fs = require('fs');
-const path = require('path');
+const cache = require("@actions/cache");
+const core = require("@actions/core");
+const exec = require("@actions/exec");
+const fs = require("fs");
+const path = require("path");
 
-const key = core.getInput('key', { required: true})
-const restoreKeys = core
-  .getInput('restore-keys')
+const keyPrefix = core.getInput("key-prefix");
+
+let key = core.getInput("key");
+let restoreKeys = core
+  .getInput("restore-keys")
   .split("\n")
-  .map(s => s.trim())
-  .filter(x => x !== "")
+  .map((s) => s.trim())
+  .filter((x) => x !== "");
 
-async function myexec(script, args) {
-  var srcDir = path.dirname(__filename)
-  await exec.exec(path.join(srcDir, script), args)
-}
+async function run(script, args) {
+  // We have to convert non-POSIX-compliant environment variable names to be
+  // compliant in order to read them in Bash.
+  // See issue https://github.com/actions/runner/issues/2283.
+  let env = { ...process.env };
+  for (const [key, value] of Object.entries(env)) {
+    const posixName = key.replace(/[- ]/g, "_").replace(/[^A-Za-z0-9_]/g, "");
+    if (posixName !== key) {
+      env[posixName] = value;
+    }
+  }
 
-function printInfo(s) {
-  console.log('\x1b[34m', s, '\x1b[0m')
+  let srcDir = path.dirname(__filename);
+  let stdout = "";
+  await exec.exec(path.join(srcDir, script), args, {
+    env: env,
+    listeners: {
+      stdout: (data) => {
+        stdout += data.toString();
+      },
+    },
+  });
+
+  return stdout;
 }
 
 const paths = [
-  '/nix/store/',
-  '/nix/var/nix/profiles/per-user/' + process.env.USER + '/profile/bin',
-  '/nix/var/nix/profiles/default/bin/',
-  '/nix/var/nix/profiles/per-user/root/channels'
-]
+  "/nix/store/",
+  "/nix/var/nix/profiles/per-user/" + process.env.USER + "/profile/bin",
+  "/nix/var/nix/profiles/default/bin/",
+  "/nix/var/nix/profiles/per-user/root/channels",
+];
+
+async function instantiateKey() {
+  console.log("Instantiating Nix store cache key based on input files");
+  let key = await run("core.sh", ["instantiate-key"]);
+  return key.split("\n").slice(0, 2);
+}
+
+async function instantiateRestoreKeys() {
+  const keyParts = await instantiateKey();
+  return [
+    keyPrefix + keyParts[0] + "-" + keyParts[1],
+    keyPrefix + keyParts[0] + "-",
+    keyPrefix,
+  ];
+}
 
 async function restoreCache() {
-  printInfo('Restoring cache for key: ' + key)
-  const cacheKey = await cache.restoreCache(paths, key, restoreKeys)
+  console.log("Restoring cache");
+  const cacheKey = await cache.restoreCache(paths, key, restoreKeys);
   if (cacheKey === undefined) {
-    printInfo('No cache found for given key')
+    console.log("No cache found for given key");
   } else {
-    printInfo(`Cache restored from ${cacheKey}`)
+    console.log(`Cache restored from ${cacheKey}`);
   }
-  return cacheKey
+  return cacheKey;
 }
 
 async function prepareSave(cacheKey) {
   if (cacheKey === undefined) {
-    printInfo('Preparing save')
-    await myexec('core.sh', ['prepare-save'])
+    console.log("Preparing save");
+    await run("core.sh", ["prepare-save"]);
   }
 }
 
 async function saveCache(cacheKey) {
-  if (cacheKey === undefined) {
-    printInfo('Saving cache with key: ' + key)
-    await cache.saveCache(paths, key)
+  if (cacheKey === undefined || cacheKey !== key) {
+    console.log("Saving cache with key: " + key);
+    await cache.saveCache(paths, key);
   }
 }
 
 async function installWithNix(cacheKey) {
   if (cacheKey === undefined) {
-    printInfo('Installing with Nix')
-    await myexec('core.sh', ['install-with-nix'])
+    console.log("Installing with Nix");
+    await run("core.sh", ["install-with-nix"]);
   } else {
-    printInfo('Installing from cache')
-    await myexec('core.sh', ['install-from-cache'])
+    console.log("Installing from cache");
+    await run("core.sh", ["install-from-cache"]);
   }
 }
 
+async function main() {
+  if (key === "" && keyPrefix === "") {
+    throw "either key or key-prefix must be set";
+  }
+
+  if (key === "") {
+    console.log("Pre-instantiating restore keys");
+    restoreKeys = await instantiateRestoreKeys();
+  }
+
+  console.log("Preparing restore");
+  await run("core.sh", ["prepare-restore"]);
+
+  const cacheKey = await restoreCache();
+
+  await installWithNix(cacheKey);
+
+  // Save the key for later use.
+  const stateKey = "cache-install-" + (key === "" ? keyPrefix : key);
+  const stateVal = cacheKey === undefined ? "" : cacheKey;
+  fs.appendFileSync(process.env.GITHUB_STATE, `${stateKey}=${stateVal}`);
+}
+
+async function post(cacheKey) {
+  // Now that we have Nix installed, we can go ahead and recalculate our cache
+  // key.
+  if (key === "") {
+    console.log("Re-instantiating cache save key");
+    const keys = await instantiateRestoreKeys();
+    if (keys[0] == keys[1]) {
+      throw new Error("Instantiation of key failed");
+    }
+    key = keys[0];
+  }
+
+  await prepareSave(cacheKey);
+  await saveCache(cacheKey);
+}
+
 (async function run() {
-  printInfo('Preparing restore')
-  await myexec('core.sh', ['prepare-restore'])
-
-  const cacheKey = await restoreCache()
-
-  await installWithNix(cacheKey)
-
-  await prepareSave(cacheKey)
-
-  await saveCache(cacheKey)
-
-// Run the async function and exit when an exception occurs.
-})().catch(e => { console.error(e); process.exit(1) })
+  const stateKey = "cache-install-" + (key === "" ? keyPrefix : key);
+  if (process.env[`STATE_${stateKey}`] === undefined) {
+    await main();
+  } else {
+    const cacheKey = process.env[`STATE_${stateKey}`];
+    await post(cacheKey === "" ? undefined : cacheKey);
+  }
+  // Run the async function and exit when an exception occurs.
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
