@@ -56182,9 +56182,11 @@ async function run(script, args) {
 
 const paths = [
   "/nix/store/",
-  "/nix/var/nix/profiles/per-user/" + process.env.USER + "/profile/bin",
-  "/nix/var/nix/profiles/default/bin/",
-  "/nix/var/nix/profiles/per-user/root/channels",
+  "/nix/var/nix/profiles",
+  "/nix/var/nix/gcroots",
+  "/nix/var/nix/db",
+  "/etc/nix",
+  "/home/" + process.env.USER + "/.nix-profile",
 ];
 
 async function instantiateKey() {
@@ -56213,15 +56215,10 @@ async function restoreCache() {
   return cacheKey;
 }
 
-async function prepareSave(cacheKey) {
-  if (cacheKey === undefined) {
-    console.log("Preparing save");
-    await run("core.sh", ["prepare-save"]);
-  }
-}
-
 async function saveCache(cacheKey) {
   if (cacheKey === undefined || cacheKey !== key) {
+    console.log("Preparing save");
+    await run("core.sh", ["prepare-save"]);
     console.log("Saving cache with key: " + key);
     await cache.saveCache(paths, key);
   }
@@ -56272,7 +56269,6 @@ async function post(cacheKey) {
     key = keys[0];
   }
 
-  await prepareSave(cacheKey);
   await saveCache(cacheKey);
 }
 

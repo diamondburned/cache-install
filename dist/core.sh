@@ -1,45 +1,36 @@
-#!/bin/bash 
+#!/usr/bin/env bash
 
 set -e
 
-install_nix() {
-	# Source: https://github.com/cachix/install-nix-action/blob/master/lib/install-nix.sh
-	if [ -d "/nix/store" ]; then
-		echo "The folder /nix/store exists; assuming Nix was restored from cache"
-		export CACHE_HIT=true
-		export PATH=$PATH:/run/current-system/sw/bin
-		set_paths
-		exit 0
-	fi
+nix_files=(
+	$INPUT_NIX_FILE
+	$INPUT_SHELL_FILE
+	$INPUT_INSTANTIATED_FILES
+)
 
-	add_config() {
-		echo "$1" | sudo tee -a /tmp/nix.conf >/dev/null
-	}
-	add_config "max-jobs = auto"
-	# Allow binary caches for runner user.
-	add_config "trusted-users = root $USER"
+nix_files_instantiables=()
+for nix_file in "${nix_files[@]}"; do
+	if [[ -e "$nix_file" ]]; then
+		nix_files_instantiables+=("$nix_file")
+	fi
+done
+
+install_nix() {
+	{
+		echo "max-jobs = auto"
+		echo "trusted-users = root $USER"
+	} | sudo tee -a /tmp/nix.conf > /dev/null
 
 	installer_options=(
-		--daemon
-		--daemon-user-count 4
-		--darwin-use-unencrypted-nix-store-volume
 		--nix-extra-conf-file /tmp/nix.conf
 		--no-channel-add
 	)
 
-	sh <(curl --silent --retry 5 --retry-connrefused -L "${INPUT_INSTALL_URL:-https://nixos.org/nix/install}") \
+	sh <(curl --silent --retry 5 --retry-connrefused -L \
+		"${INPUT_INSTALL_URL:-https://nixos.org/nix/install}") \
 		"${installer_options[@]}"
 
-	if [[ $OSTYPE =~ darwin ]]; then
-		# Disable spotlight indexing of /nix to speed up performance
-		sudo mdutil -i off /nix
-
-		# macOS needs certificates hints
-		cert_file=/nix/var/nix/profiles/default/etc/ssl/certs/ca-bundle.crt
-		echo "NIX_SSL_CERT_FILE=$cert_file" >> $GITHUB_ENV
-		export NIX_SSL_CERT_FILE=$cert_file
-		sudo launchctl setenv NIX_SSL_CERT_FILE "$cert_file"
-	fi
+	source $HOME/.nix-profile/etc/profile.d/nix.sh
 }
 
 install_via_nix() {
@@ -60,14 +51,13 @@ install_via_nix() {
 	fi
 }
 
-set_paths() {
-	echo "/nix/var/nix/profiles/per-user/$USER/profile/bin" >> $GITHUB_PATH
+set_env() {
+	echo "/home/$USER/.nix-profile/bin" >> $GITHUB_PATH
 	echo "/nix/var/nix/profiles/default/bin" >> $GITHUB_PATH
-	# Path is set correctly by set_paths but that is only available outside of this Action.
-	export PATH=/nix/var/nix/profiles/default/bin/:$PATH
-}
-
-set_nix_path() {
+	echo "/nix/var/nix/profiles/per-user/$USER/profile/bin" >> $GITHUB_PATH
+	export PATH="/home/$USER/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/per-user/$USER/profile/bin:$PATH"
+	echo "NIX_LINK=/home/$USER/.nix-profile" >> $GITHUB_ENV
+	echo "NIX_PROFILES=/nix/var/nix/profiles/default /home/$USER/.nix-profile" >> $GITHUB_ENV
 	export NIX_PATH="/nix/var/nix/profiles/per-user/root/channels"
 	if [[ "$INPUT_NIX_PATH" != "" ]]; then
 		export NIX_PATH="$NIX_PATH:$INPUT_NIX_PATH"
@@ -75,9 +65,22 @@ set_nix_path() {
 	echo "NIX_PATH=${NIX_PATH}" >> $GITHUB_ENV
 }
 
+instantiate_roots() {
+	# Anchor our inputs by instantiating them into a directory. This will
+	# ensure that we can GC them later if needed.
+	paths=$(nix-instantiate \
+		--add-root /nix/var/nix/gcroots/per-user/$USER/cache-install \
+		${nix_files_instantiables[*]})
+
+	echo "::debug::Instantiated roots:"
+	for path in "$paths"; do
+		echo "::debug::$(ls -l $path)"
+	done
+}
+
 prepare() {
-	sudo mkdir -p --verbose /nix
-	sudo chown --verbose "$USER:" /nix 
+	sudo install -d -m755 -o $(id -u) -g $(id -g) /nix
+	sudo install -d -m755 -o $(id -u) -g $(id -g) /etc/nix
 }
 
 prepare_save() {
@@ -88,17 +91,7 @@ prepare_save() {
 	fi
 }
 
-undo_prepare() {
-	sudo rm -rf /nix
-}
-
 instantiate_key() {
-	nix_files=(
-		$INPUT_NIX_FILE
-		$INPUT_SHELL_FILE
-		$INPUT_INSTANTIATED_FILES
-	)
-
 	# For the first layer of the cache key, we'll just use the input names. This
 	# ensures we'll still match the best cache if there's no exact match.
 	nix_cache1=$(sha1sum <<< "${nix_files[@]}" | cut -d' ' -f1 | head -c8)
@@ -108,26 +101,20 @@ instantiate_key() {
 	nix_cache3=
 
 	if command -v nix &> /dev/null; then
-		instantiables=()
-		for nix_file in "${nix_files[@]}"; do
-			if [[ -e "$nix_file" ]]; then
-				instantiables+=("$nix_file")
-			fi
-		done
-
 		# For the second layer of the cache key, we'll use the hash of the
 		# instantiated nix files. This ensures we'll match the best cache if
 		# there's an exact match.
-		nix_roots=( $(nix-instantiate --add-root /tmp --indirect ${instantiables[*]}) )
+		nix_roots=( $(nix-instantiate ${nix_files_instantiables[*]}) )
 		nix_cache2=$(sha1sum <<< "${nix_roots[@]}" | cut -d' ' -f1 | head -c16)
 
 		# For the third layer of the cache key, we'll use the hash of the
 		# nix store paths. This prevents cases where we didn't fetch everything
 		# that we should have.
-		nix_cache3=$(sha1sum \
-			<(nix-store -qR --include-outputs "${nix_roots[@]}") \
+		nix_cache3=$(nix-store -qR --include-outputs "${nix_roots[@]}" \
 			| while read -r f; do if [[ -e "$f" ]]; then echo "$f"; fi; done \
-			| cut -d' ' -f 1 | head -c16)
+			| sha1sum \
+			| cut -d' ' -f1 \
+			| head -c16)
 	fi
 
 	printf "%s-%s-%s\n" "$nix_cache1" "$nix_cache2" "$nix_cache3"
@@ -137,15 +124,13 @@ TASK="$1"
 if [ "$TASK" == "prepare-restore" ]; then
 	prepare
 elif [ "$TASK" == "install-with-nix" ]; then
-	undo_prepare
-	set_nix_path
 	install_nix
-	set_paths
 	install_via_nix
+	set_env
 elif [ "$TASK" == "install-from-cache" ]; then
-	set_nix_path
-	set_paths
+	set_env
 elif [ "$TASK" == "prepare-save" ]; then
+	instantiate_roots
 	prepare_save
 	prepare
 elif [ "$TASK" == "instantiate-key" ]; then
