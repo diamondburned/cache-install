@@ -101,15 +101,13 @@ instantiate_key() {
 
 	# For the first layer of the cache key, we'll just use the input names. This
 	# ensures we'll still match the best cache if there's no exact match.
-	nix_cache1=$(sha1sum \
-		<<< "${nix_files[@]}" \
-		| cut -d' ' -f1 \
-		| head -c8)
+	nix_cache1=$(sha1sum <<< "${nix_files[@]}" | cut -d' ' -f1 | head -c8)
 	# TODO: add another layer that hashes the nix paths. We'll need a way to
 	# figure out impure paths like nixos-unstable commits.
 	nix_cache2=
+	nix_cache3=
 
-	if command -v nix-instantiate >/dev/null 2>&1; then
+	if command -v nix &> /dev/null; then
 		instantiables=()
 		for nix_file in "${nix_files[@]}"; do
 			if [[ -e "$nix_file" ]]; then
@@ -120,14 +118,19 @@ instantiate_key() {
 		# For the second layer of the cache key, we'll use the hash of the
 		# instantiated nix files. This ensures we'll match the best cache if
 		# there's an exact match.
-		nix_cache2=$(sha1sum \
-			< <(nix-instantiate --add-root /tmp --indirect ${instantiables[*]}) \
-			| cut -d' ' -f1 \
-			| head -c16)
+		nix_roots=( $(nix-instantiate --add-root /tmp --indirect ${instantiables[*]}) )
+		nix_cache2=$(sha1sum <<< "${nix_roots[@]}" | cut -d' ' -f1 | head -c16)
+
+		# For the third layer of the cache key, we'll use the hash of the
+		# nix store paths. This prevents cases where we didn't fetch everything
+		# that we should have.
+		nix_cache3=$(sha1sum \
+			<(nix-store -qR --include-outputs "${nix_roots[@]}") \
+			| while read -r f; do if [[ -e "$f" ]]; then echo "$f"; fi; done \
+			| cut -d' ' -f 1 | head -c16)
 	fi
 
-	echo $nix_cache1
-	echo $nix_cache2
+	printf "%s-%s-%s\n" "$nix_cache1" "$nix_cache2" "$nix_cache3"
 }
 
 TASK="$1"

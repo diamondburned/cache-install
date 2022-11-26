@@ -49,16 +49,16 @@ const paths = [
 async function instantiateKey() {
   console.log("Instantiating Nix store cache key based on input files");
   let key = await run("core.sh", ["instantiate-key"]);
-  return key.split("\n").slice(0, 2);
+  return key.trim().split("-");
 }
 
 async function instantiateRestoreKeys() {
   const keyParts = await instantiateKey();
-  return [
-    keyPrefix + keyParts[0] + "-" + keyParts[1],
-    keyPrefix + keyParts[0] + "-",
-    keyPrefix,
-  ];
+  let keys = [];
+  for (let i = keyParts.length; i >= 0; i--) {
+    keys.push(keyPrefix + keyParts.slice(0, i).join("-"));
+  }
+  return keys;
 }
 
 async function restoreCache() {
