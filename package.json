@@ -4,7 +4,7 @@
   "description": "Use the GitHub Actions cache for Nix packages",
   "main": "src/main.js",
   "scripts": {
-    "build": "ncc build -o dist --source-map"
+    "build": "esbuild ./src/main.js --bundle --outfile=./dist/index.js --minify --sourcemap --platform=node"
   },
   "repository": {
     "type": "git",
@@ -25,7 +25,7 @@
     "@actions/io": "^1.0.1"
   },
   "devDependencies": {
-    "@vercel/ncc": "^0.31.1",
+    "esbuild": "^0.15.15",
     "prettier": "^2.8.0"
   }
 }

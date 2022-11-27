@@ -1,7 +1,10 @@
 { pkgs ? import <nixpkgs> {} }:
 
 pkgs.mkShell {
-	buildInputs = with pkgs; [ nodejs-16_x ];
+	buildInputs = with pkgs; [
+		nodejs-16_x
+		esbuild
+	];
 
 	shellHook = ''
 		PATH="$PWD/node_modules/.bin:$PATH"
