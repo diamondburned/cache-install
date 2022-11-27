@@ -2,24 +2,17 @@ name: "Cache install Nix packages"
 description: Use the GitHub Actions cache for Nix packages
 author: "Rik Huijzer"
 inputs:
-  key:
-    description: |-
-      An explicit key for restoring and saving the cache. If not provided, then
-      the Nix files are used as inputs.
-    required: false
   key-prefix:
     description: |-
       The prefix to use for the evaluated cache key.
     default: nix-${{ runner.os }}-
-  restore-keys:
-    description: |-
-      An ordered list of keys to use for restoring the cache if no cache hit
-      occurred for key.
     required: false
   nix-path:
     description: |-
-      Nix path to use (e.g. `nixpkgs=channel:nixos-unstable`), defaults to none.
-      Prefer manually importing Nixpkgs whenever possible.
+      Nix path to use (e.g. `nixpkgs=channel:nixos-unstable`), defaults to
+      <nixpkgs> being nixos-unstable. Prefer manually importing Nixpkgs whenever
+      possible.
+    default: nixpkgs=channel:nixos-unstable
   nix-file:
     description: |-
       Nix file of form `{ pkgs }: []`.
