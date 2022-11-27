@@ -137,8 +137,8 @@ if [ "$TASK" == "prepare-restore" ]; then
 	prepare
 elif [ "$TASK" == "install-with-nix" ]; then
 	install_nix
-	install_via_nix
 	set_env
+	install_via_nix
 elif [ "$TASK" == "install-from-cache" ]; then
 	set_env
 elif [ "$TASK" == "prepare-save" ]; then
