@@ -65,29 +65,41 @@ set_env() {
 	echo "NIX_PATH=${NIX_PATH}" >> $GITHUB_ENV
 }
 
-instantiate_roots() {
-	# Anchor our inputs by instantiating them into a directory. This will
-	# ensure that we can GC them later if needed.
-	paths=$(nix-instantiate \
-		--add-root /nix/var/nix/gcroots/per-user/$USER/cache-install \
-		${nix_files_instantiables[*]})
-
-	echo "::debug::Instantiated roots:"
-	for path in "$paths"; do
-		echo "::debug::$(ls -l $path)"
-	done
-}
-
 prepare() {
 	sudo install -d -m755 -o $(id -u) -g $(id -g) /nix
 	sudo install -d -m755 -o $(id -u) -g $(id -g) /etc/nix
 }
 
+instantiate_roots() {
+	# Instantiate all the files and add them to the root.
+	paths=(
+		$(nix-instantiate \
+			--add-root /tmp/drv-root --indirect ${nix_files_instantiables[*]})
+	)
+
+	# Find all output paths that we have built. This excludes .drv paths which
+	# are not built yet.
+	existing_paths=(
+		$(nix-store -qR --include-outputs ${paths[@]} \
+			| grep -vG '\.drv$' \
+			| while read -r f; do if [[ -e "$f" ]]; then echo "$f"; fi; done)
+	)
+
+	# Anchor our inputs by realizing them into a directory. This will ensure
+	# that we can GC them later if needed.
+	nix-store -r \
+		--add-root /tmp/output-root --indirect ${existing_paths[@]} \
+		> /dev/null
+	echo "Added ${#existing_paths[@]} paths to the GC roots"
+}
+
 prepare_save() {
 	if [[ "$INPUT_AUTO_OPTIMISE" != false ]]; then
+		echo "Adding known derivations and outputs to gcroots..."
+		instantiate_roots
 		echo "Optimising Nix store before caching..."
 		nix-store --gc
-		nix-store --optimise -vv
+		nix-store --optimise -v
 	fi
 }
 
@@ -130,7 +142,6 @@ elif [ "$TASK" == "install-with-nix" ]; then
 elif [ "$TASK" == "install-from-cache" ]; then
 	set_env
 elif [ "$TASK" == "prepare-save" ]; then
-	instantiate_roots
 	prepare_save
 	prepare
 elif [ "$TASK" == "instantiate-key" ]; then
