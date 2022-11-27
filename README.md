@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Cache install Nix packages
-        uses: diamondburned/cache-install@auto-cache
+        uses: diamondburned/cache-install@main
         with:
           shell-file: shell.nix
 
