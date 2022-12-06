@@ -4,7 +4,7 @@
   "description": "Use the GitHub Actions cache for Nix packages",
   "main": "src/main.js",
   "scripts": {
-    "build": "esbuild ./src/main.js --bundle --outfile=./dist/index.js --minify --sourcemap --platform=node"
+    "build": "esbuild ./src/main.js --bundle --outfile=./dist/index.js --sourcemap --platform=node"
   },
   "repository": {
     "type": "git",
