@@ -1,8 +1,14 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import <nixpkgs> {
+	overlays = [
+		(self: super: {
+			nodejs = super.nodejs-16_x;
+		})
+	];
+} }:
 
 pkgs.mkShell {
 	buildInputs = with pkgs; [
-		nodejs-16_x
+		nodejs
 		esbuild
 	];
 
