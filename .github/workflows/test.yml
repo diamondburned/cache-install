@@ -35,6 +35,11 @@ jobs:
           nix-file: "test/simple.nix"
           nix-path: nixpkgs=channel:nixos-unstable
           key-prefix: test-${{ github.run_id }}-
+          instantiated-expression: |
+            [
+              (import ./test/simple.nix)
+              (import <nixpkgs> {}).hello
+            ]
 
       - name: Test whether simple.nix is installed
         run: hello

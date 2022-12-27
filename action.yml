@@ -25,6 +25,10 @@ inputs:
     description: |-
       Nix files to instantiate for the cache but not install.
     required: false
+  instantiated-expression:
+    description: |-
+      Nix expression to instantiate for the cache but not install.
+    required: false
   auto-optimise:
     description: |-
       Whether to run `nix-store --optimise` before caching.
