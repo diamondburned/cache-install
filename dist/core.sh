@@ -53,7 +53,7 @@ install_via_nix() {
 			nix-env --install -E "{ ... }: (import ${path} {}).buildInputs"
 
 			out=$(nix-build --no-out-link "$INPUT_SHELL_FILE")
-			sed -n 's/^declare -x \(NIX_.*\)/\1/p' $out > $GITHUB_ENV
+			sed -n 's/^declare -x \(.*\)/\1/p' $out > $GITHUB_ENV
 		else
 			echo "File at shell_file does not exist, skipping..."
 		fi
