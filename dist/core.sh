@@ -77,11 +77,22 @@ prepare() {
 }
 
 instantiate_roots() {
-	# Instantiate all the files and add them to the root.
-	paths=(
-		$(nix-instantiate \
-			--add-root /tmp/drv-root --indirect ${nix_files_instantiables[*]})
-	)
+	# Instantiate all the files and expressions and add them to the root.
+	paths=()
+	if (( ${#nix_files_instantiables[@]} > 0 )); then
+		paths+=(
+			$(nix-instantiate \
+				--add-root /tmp/drv-root --indirect \
+				${nix_files_instantiables[*]})
+		)
+	fi
+	if [[ "$INPUT_INSTANTIATED_EXPRESSION" != "" ]]; then
+		paths+=(
+			$(nix-instantiate \
+				--add-root /tmp/drv-root --indirect \
+				--expr "$INPUT_INSTANTIATED_EXPRESSION")
+		)
+	fi
 
 	# Find all output paths that we have built. This excludes .drv paths which
 	# are not built yet.
@@ -96,6 +107,7 @@ instantiate_roots() {
 	nix-store -r \
 		--add-root /tmp/output-root --indirect ${existing_paths[@]} \
 		> /dev/null
+
 	echo "Added ${#existing_paths[@]} paths to the GC roots"
 }
 
