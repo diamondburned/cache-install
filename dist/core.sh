@@ -51,6 +51,9 @@ install_via_nix() {
 		if [[ -f "$INPUT_SHELL_FILE" ]]; then
 			local path=$(realpath "$INPUT_SHELL_FILE")
 			nix-env --install -E "{ ... }: (import ${path} {}).buildInputs"
+
+			out=$(nix-build --no-out-link "$INPUT_SHELL_FILE")
+			sed -n 's/^declare -x \(NIX_.*\)/\1/p' $out > $GITHUB_ENV
 		else
 			echo "File at shell_file does not exist, skipping..."
 		fi
@@ -154,21 +157,28 @@ instantiate_key() {
 	printf "%s-%s-%s\n" "$nix_cache1" "$nix_cache2" "$nix_cache3"
 }
 
-TASK="$1"
-if [ "$TASK" == "prepare-restore" ]; then
+case "$1" in
+prepare-restore)
 	prepare
-elif [ "$TASK" == "install-with-nix" ]; then
+	;;
+install-with-nix)
 	install_nix
 	set_env
 	install_via_nix
-elif [ "$TASK" == "install-from-cache" ]; then
+	;;
+install-from-cache)
 	set_env
-elif [ "$TASK" == "prepare-save" ]; then
+	install_via_nix
+	;;
+prepare-save)
 	prepare_save
 	prepare
-elif [ "$TASK" == "instantiate-key" ]; then
+	;;
+instantiate-key)
 	instantiate_key
-else
-	echo "Unknown argument given to core.sh: $TASK"
+	;;
+*)
+	echo "Unknown argument given to core.sh: $1"
 	exit 1
-fi
+	;;
+esac
