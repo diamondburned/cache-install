@@ -49,16 +49,53 @@ install_via_nix() {
 	fi
 	if [[ "$INPUT_SHELL_FILE" != "" ]]; then
 		if [[ -f "$INPUT_SHELL_FILE" ]]; then
-			local path=$(realpath "$INPUT_SHELL_FILE")
-			nix-env --install -E "{ ... }: (import ${path} {}).buildInputs"
+			# Install our packages.
+			local path="$(realpath "$INPUT_SHELL_FILE")"
+			nix-env -iE "{ ... }: (import ${path} {}).buildInputs"
 
-			out=$(nix-build --no-out-link "$INPUT_SHELL_FILE")
-			sed -n 's/^declare -x \(.*\)/\1/p' $out > $GITHUB_ENV
+			# Install our environment variables (excluding PATH).
+			dump_shell "$INPUT_SHELL_FILE" | grep -v '^PATH=' >> $GITHUB_ENV
 		else
 			echo "File at shell_file does not exist, skipping..."
 		fi
 	fi
 }
+
+dump_shell() {
+	{
+		nix print-dev-env \
+			--extra-experimental-features 'nix-command flakes' \
+			--impure \
+			--file "$1"
+		echo env
+	} \
+		| env -i bash \
+		| grep -o '[A-Z0-9_]\+=.*' \
+		| grep -v '^_='
+}
+
+# dump_shell() (
+# 	# Require direnv to load our shell. Direnv is better than us at pulling out
+# 	# the right environment variables.
+# 	nix-env -iA nixpkgs.direnv
+
+# 	cd "$(dirname "$1")"
+
+# 	# Hack to use direnv to vomit the shell.nix into the environment.
+# 	echo "use nix $(basename "$1")" > .envrc
+
+# 	# Load and export the shell variables.
+# 	direnv allow
+# 	direnv export bash > /tmp/direnv.sh
+
+# 	# Hack to dump all shell environment variables from the file.
+# 	bash -x /tmp/direnv.sh \
+# 		|& sed -n 's/^+ \([A-Z0-9_-]*=.*\)$/\1/p'
+
+# 	# Clean up.
+# 	rm .envrc
+# 	rm /tmp/direnv.sh
+# )
 
 set_env() {
 	echo "/home/$USER/.nix-profile/bin" >> $GITHUB_PATH
