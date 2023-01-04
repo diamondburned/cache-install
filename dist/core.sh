@@ -123,14 +123,14 @@ instantiate_roots() {
 		paths+=(
 			$(nix-instantiate \
 				--add-root /tmp/drv-root --indirect \
-				${nix_files_instantiables[*]})
+				"${nix_files_instantiables[@]}")
 		)
 	fi
 	if [[ "$INPUT_INSTANTIATED_EXPRESSION" != "" ]]; then
 		paths+=(
 			$(nix-instantiate \
 				--add-root /tmp/drv-root --indirect \
-				--expr "$INPUT_INSTANTIATED_EXPRESSION")
+				-E "$INPUT_INSTANTIATED_EXPRESSION")
 		)
 	fi
 
@@ -174,7 +174,10 @@ instantiate_key() {
 		# For the second layer of the cache key, we'll use the hash of the
 		# instantiated nix files. This ensures we'll match the best cache if
 		# there's an exact match.
-		nix_roots=( $(nix-instantiate ${nix_files_instantiables[*]}) )
+		nix_roots=()
+		if (( ${#nix_files_instantiables[@]} > 0 )); then
+			nix_roots+=( $(nix-instantiate "${nix_files_instantiables[@]}") )
+		fi
 		if [[ "$INPUT_INSTANTIATED_EXPRESSION" != "" ]]; then
 			nix_roots+=( $(nix-instantiate -E "$INPUT_INSTANTIATED_EXPRESSION") )
 		fi
