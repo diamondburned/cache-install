@@ -53,8 +53,9 @@ install_via_nix() {
 			local path="$(realpath "$INPUT_SHELL_FILE")"
 			nix-env -iE "{ ... }: (import ${path} {}).buildInputs"
 
-			# Install our environment variables (excluding PATH).
-			dump_shell "$INPUT_SHELL_FILE" | grep -v '^PATH=' >> $GITHUB_ENV
+			# Install our environment variables.
+			local envs=$(dump_shell "$INPUT_SHELL_FILE")
+			echo "$envs" >> $GITHUB_ENV
 		else
 			echo "File at shell_file does not exist, skipping..."
 		fi
