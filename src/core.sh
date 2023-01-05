@@ -71,7 +71,7 @@ dump_shell() {
 		echo env
 	} \
 		| env -i bash \
-		| grep -o '[A-Z0-9_]\+=.*' \
+		| grep -o '[A-Z0-9_][A-Za-z0-9_]\+=.*' \
 		| grep -v '^_='
 }
 
