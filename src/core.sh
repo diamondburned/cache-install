@@ -42,7 +42,9 @@ install_nix() {
 install_via_nix() {
 	if [[ "$INPUT_NIX_FILE" != "" ]]; then
 		if [[ -f "$INPUT_NIX_FILE" ]]; then
-			nix-env --install --file "$INPUT_NIX_FILE"
+			nix-env -i \
+				-f "$INPUT_NIX_FILE" \
+				--arg pkgs 'import <nixpkgs> {}'
 		else
 			echo "File at nix_file does not exist, skipping..."
 		fi
@@ -105,7 +107,7 @@ set_env() {
 	export PATH="/home/$USER/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/per-user/$USER/profile/bin:$PATH"
 	echo "NIX_LINK=/home/$USER/.nix-profile" >> $GITHUB_ENV
 	echo "NIX_PROFILES=/nix/var/nix/profiles/default /home/$USER/.nix-profile" >> $GITHUB_ENV
-	export NIX_PATH="/nix/var/nix/profiles/per-user/root/channels"
+	export NIX_PATH="/nix/var/nix/profiles/per-user/root/channels:${NIX_PATH}"
 	if [[ "$INPUT_NIX_PATH" != "" ]]; then
 		export NIX_PATH="$NIX_PATH:$INPUT_NIX_PATH"
 	fi
