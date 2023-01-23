@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-save-simple:
+  test-shell:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -15,8 +15,7 @@ jobs:
       - name: Install shell
         uses: ./
         with:
-          nix-path: nixpkgs=channel:nixos-unstable
-          shell-file: shell.nix
+          shell-file: test/shell.nix
 
       - name: Hello!
         run: hello

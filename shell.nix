@@ -17,5 +17,5 @@ pkgs.mkShell {
 	'';
 
 	# ncc is trash and doesn't work otherwise.
-	NODE_OPTIONS = "--openssl-legacy-provider";
+	# NODE_OPTIONS = "--openssl-legacy-provider";
 }
