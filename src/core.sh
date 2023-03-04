@@ -74,6 +74,9 @@ dump_shell() {
 set_env() {
 	echo "what's in cache:"
 	ls -la /nix/store
+	ls -la /home/$USER/.nix-profile
+	ls -la /home/$USER | grep nix
+
 	tree /nix/var/nix/profiles
 	tree /nix/var/nix/db
 	tree /etc/nix
