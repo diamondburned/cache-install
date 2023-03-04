@@ -83,8 +83,6 @@ set_env() {
 		export NIX_PATH="$NIX_PATH:$INPUT_NIX_PATH"
 	fi
 	echo "NIX_PATH=${NIX_PATH}" >> $GITHUB_ENV
-
-	source $HOME/.nix-profile/etc/profile.d/nix.sh
 }
 
 prepare() {
