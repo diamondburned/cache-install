@@ -72,6 +72,16 @@ dump_shell() {
 }
 
 set_env() {
+	echo "what's in cache:"
+	ls -la /nix/store
+	ls -la /nix/var/nix/profiles
+	ls -la /nix/var/nix/profiles/per-user/$USER
+	ls -la /nix/var/nix/db
+	ls -la /etc/nix
+	ls -la /home/$USER/.nix-profile
+
+	echo "continue..."
+
 	echo "/home/$USER/.nix-profile/bin" >> $GITHUB_PATH
 	echo "/nix/var/nix/profiles/default/bin" >> $GITHUB_PATH
 	echo "/nix/var/nix/profiles/per-user/$USER/profile/bin" >> $GITHUB_PATH
