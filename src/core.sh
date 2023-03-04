@@ -74,11 +74,10 @@ dump_shell() {
 set_env() {
 	echo "what's in cache:"
 	ls -la /nix/store
-	ls -la /nix/var/nix/profiles
-	ls -la /nix/var/nix/profiles/per-user/$USER
-	ls -la /nix/var/nix/db
-	ls -la /etc/nix
-	ls -la /home/$USER/.nix-profile
+	tree /nix/var/nix/profiles
+	tree /nix/var/nix/db
+	tree /etc/nix
+	tree /home/$USER/.nix-profile
 
 	echo "continue..."
 
