@@ -66037,7 +66037,8 @@ var paths = [
   "/nix/var/nix/gcroots",
   "/nix/var/nix/db",
   "/etc/nix",
-  "/home/" + process.env.USER + "/.nix-profile"
+  "/home/" + process.env.USER + "/.nix-profile",
+  "/home/" + process.env.USER + "/.local"
 ];
 async function instantiateKey() {
   console.log("Instantiating Nix store cache key based on input files");
