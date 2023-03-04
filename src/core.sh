@@ -35,8 +35,6 @@ install_nix() {
 	sh <(curl --silent --retry 5 --retry-connrefused -L \
 		"${INPUT_INSTALL_URL:-https://nixos.org/nix/install}") \
 		"${installer_options[@]}"
-
-	source $HOME/.nix-profile/etc/profile.d/nix.sh
 }
 
 install_via_nix() {
@@ -74,6 +72,16 @@ dump_shell() {
 }
 
 set_env() {
+	echo "what's in cache:"
+	ls -la /nix/store
+	ls -la /nix/var/nix/profiles
+	ls -la /nix/var/nix/profiles/per-user/$USER
+	ls -la /nix/var/nix/db
+	ls -la /etc/nix
+	ls -la /home/$USER/.nix-profile
+
+	echo "continue..."
+
 	echo "/home/$USER/.nix-profile/bin" >> $GITHUB_PATH
 	echo "/nix/var/nix/profiles/default/bin" >> $GITHUB_PATH
 	echo "/nix/var/nix/profiles/per-user/$USER/profile/bin" >> $GITHUB_PATH
@@ -85,6 +93,8 @@ set_env() {
 		export NIX_PATH="$NIX_PATH:$INPUT_NIX_PATH"
 	fi
 	echo "NIX_PATH=${NIX_PATH}" >> $GITHUB_ENV
+
+	source $HOME/.nix-profile/etc/profile.d/nix.sh
 }
 
 prepare() {
