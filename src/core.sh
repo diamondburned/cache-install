@@ -35,8 +35,6 @@ install_nix() {
 	sh <(curl --silent --retry 5 --retry-connrefused -L \
 		"${INPUT_INSTALL_URL:-https://nixos.org/nix/install}") \
 		"${installer_options[@]}"
-
-	source $HOME/.nix-profile/etc/profile.d/nix.sh
 }
 
 install_via_nix() {
@@ -93,8 +91,13 @@ prepare() {
 }
 
 instantiate_roots() {
+	paths=(
+		# Also add the Nix CLI itself to the root. This is needed for the cache
+		# to be restored later.
+		$(nix-instantiate '<nixpkgs>' -A nix)
+	)
+
 	# Instantiate all the files and expressions and add them to the root.
-	paths=()
 	if (( ${#nix_files_instantiables[@]} > 0 )); then
 		paths+=(
 			$(nix-instantiate \
@@ -110,9 +113,9 @@ instantiate_roots() {
 		)
 	fi
 
-	# Find all output paths that we have built. This excludes .drv paths which
-	# are not built yet.
 	existing_paths=(
+		# Find all output paths that we have built. This excludes .drv paths
+		# which are not built yet.
 		$(nix-store -qR --include-outputs ${paths[@]} \
 			| grep -vG '\.drv$' \
 			| while read -r f; do if [[ -e "$f" ]]; then echo "$f"; fi; done)

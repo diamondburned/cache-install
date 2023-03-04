@@ -46,6 +46,7 @@ const paths = [
   "/nix/var/nix/db",
   "/etc/nix",
   "/home/" + process.env.USER + "/.nix-profile",
+  "/home/" + process.env.USER + "/.local", // Nix 2.14+ does this
 ];
 
 async function instantiateKey() {
