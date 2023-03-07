@@ -10,8 +10,9 @@ nix_files=(
 )
 
 nix_inputs=(
-	${nix_files[@]}
+	"${nix_files[@]}"
 	"$INPUT_INSTANTIATED_EXPRESSION"
+	"$INPUT_NIX_INSTALL_URL"
 )
 
 nix_files_instantiables=()
@@ -33,7 +34,7 @@ install_nix() {
 	)
 
 	sh <(curl --silent --retry 5 --retry-connrefused -L \
-		"${INPUT_INSTALL_URL:-https://nixos.org/nix/install}") \
+		"${INPUT_NIX_INSTALL_URL}") \
 		"${installer_options[@]}"
 }
 
