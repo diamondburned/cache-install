@@ -136,8 +136,8 @@ prepare_save() {
 		echo "Adding known derivations and outputs to gcroots..."
 		instantiate_roots
 		echo "Optimising Nix store before caching..."
-		nix-store --gc
-		nix-store --optimise -v
+		nix-store --gc |& as_debug
+		nix-store --optimise -v |& as_debug
 	fi
 }
 
@@ -175,6 +175,12 @@ instantiate_key() {
 	fi
 
 	printf "%s-%s-%s\n" "$nix_cache1" "$nix_cache2" "$nix_cache3"
+}
+
+as_debug() {
+	while read -r line; do
+		echo "::debug::$line"
+	done
 }
 
 case "$1" in
