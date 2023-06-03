@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -e
-# set -x
+[[ "$RUNNER_DEBUG" != "" ]] && set -x
 
 nix_files=(
 	$INPUT_NIX_FILE
