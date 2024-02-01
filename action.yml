@@ -37,7 +37,7 @@ inputs:
   auto-optimise:
     description: |-
       Whether to run `nix-store --optimise` before caching.
-    default: true
+    default: false
 outputs:
   cache-hit:
     description: |-

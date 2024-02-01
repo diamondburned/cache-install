@@ -132,12 +132,15 @@ instantiate_roots() {
 }
 
 prepare_save() {
+	echo "Adding known derivations and outputs to gcroots..."
+	instantiate_roots
+
+	echo "Running Nix garbage collector..."
+	time nix-store --gc |& as_debug
+
 	if [[ "$INPUT_AUTO_OPTIMISE" != false ]]; then
-		echo "Adding known derivations and outputs to gcroots..."
-		instantiate_roots
 		echo "Optimising Nix store before caching..."
-		nix-store --gc |& as_debug
-		nix-store --optimise -v |& as_debug
+		time nix-store --optimise -v |& as_debug
 	fi
 }
 
